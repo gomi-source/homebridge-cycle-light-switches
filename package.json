@@ -1,0 +1,50 @@
+{
+  "name": "homebridge-cycle-light-switches",
+  "displayName": "Virtual Light Switches",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Homebridge plugin that adds configurable virtual on/off lights, each paired with a configurable number of virtual single-press switches that fire in a round-robin sequence every time the light is turned on.",
+  "author": "Anders Ljungh",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/USERNAME/homebridge-cycle-light-switches#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/USERNAME/homebridge-cycle-light-switches.git"
+  },
+  "bugs": {
+    "url": "https://github.com/USERNAME/homebridge-cycle-light-switches/issues"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "supports-hap"
+  ],
+  "main": "dist/index.js",
+  "engines": {
+    "node": "^18.20.4 || ^20.16.0 || ^22.0.0",
+    "homebridge": "^1.8.0 || ^2.0.0"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc",
+    "lint": "eslint . --max-warnings=0",
+    "prepublishOnly": "npm run lint && npm run build",
+    "watch": "npm run build && npm link && nodemon"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@types/node": "^22.5.0",
+    "eslint": "^9.9.0",
+    "homebridge": "^1.8.0",
+    "nodemon": "^3.1.4",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.2.0"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
+  },
+  "dependencies": {
+    "fsevents": "^2.3.3"
+  }
+}

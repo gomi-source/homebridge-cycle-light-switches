@@ -1,0 +1,57 @@
+{
+  "pluginAlias": "VirtualLightSwitches",
+  "pluginType": "platform",
+  "singular": true,
+  "strictValidation": true,
+  "headerDisplay": "Adds one or more virtual on/off lights. Every light triggers a configurable number of virtual single-press switches, one at a time in rotation, each time the light is turned on — whether from the Home app, Siri, or an automation. Point HomeKit automations at each switch's \"Single Press\" event to chain further actions.",
+  "footerDisplay": "See the plugin README for a full walkthrough of the round-robin switch behavior and example automations.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform Name",
+        "type": "string",
+        "default": "Virtual Light Switches"
+      },
+      "lights": {
+        "title": "Lights",
+        "type": "array",
+        "default": [],
+        "items": {
+          "type": "object",
+          "title": "Light",
+          "required": ["name", "switchCount"],
+          "properties": {
+            "name": {
+              "title": "Light Name",
+              "type": "string",
+              "description": "Displayed name of the virtual light. Must be unique across all lights in this plugin."
+            },
+            "switchCount": {
+              "title": "Number of Switches",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99,
+              "default": 1,
+              "description": "How many virtual single-press switches accompany this light."
+            },
+            "resetCountOnOff": {
+              "title": "Reset switch sequence when the light turns off",
+              "type": "boolean",
+              "default": false,
+              "description": "Off (default): the rotation never resets — turning the light on repeatedly keeps cycling through the switches no matter how many times it's turned off in between. On: turning the light off resets the rotation, so the next time it's turned on, switch 1 fires again."
+            },
+            "switchNames": {
+              "title": "Custom Switch Names (optional)",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional display names for each switch, in order (first entry = switch 1). Leave empty to auto-name them \"<Light Name> Switch <n>\"."
+            }
+          }
+        }
+      }
+    }
+  }
+}

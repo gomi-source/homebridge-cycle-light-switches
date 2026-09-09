@@ -1,0 +1,8 @@
+.github
+.vscode
+src
+tsconfig.json
+eslint.config.js
+nodemon.json
+test
+*.log
