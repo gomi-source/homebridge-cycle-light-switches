@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "VirtualLightSwitches",
+  "pluginAlias": "CycleLightSwitches",
   "pluginType": "platform",
   "singular": true,
   "strictValidation": true,
@@ -11,7 +11,7 @@
       "name": {
         "title": "Platform Name",
         "type": "string",
-        "default": "Virtual Light Switches"
+        "default": "Cycle Light Switches"
       },
       "lights": {
         "title": "Lights",

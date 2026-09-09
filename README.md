@@ -45,8 +45,8 @@ which reads `config.schema.json`):
 {
   "platforms": [
     {
-      "platform": "VirtualLightSwitches",
-      "name": "Virtual Light Switches",
+      "platform": "CycleLightSwitches",
+      "name": "Cycle Light Switches",
       "lights": [
         {
           "name": "Kitchen Scene Trigger",

@@ -15,14 +15,14 @@ export interface LightConfig {
 }
 
 /**
- * VirtualLightSwitchesPlatform
+ * CycleLightSwitchesPlatform
  *
  * Reads the `lights` array from the plugin config and maintains one accessory per light.
  * Each accessory exposes an on/off-only Lightbulb service plus `switchCount` stateless,
  * single-press "Generic Switch" services. See `virtualLightAccessory.ts` for the
  * round-robin firing logic.
  */
-export class VirtualLightSwitchesPlatform implements DynamicPlatformPlugin {
+export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
   public readonly Characteristic: typeof Characteristic;
 

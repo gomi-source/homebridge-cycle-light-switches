@@ -1,6 +1,6 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
-import type { LightConfig, VirtualLightSwitchesPlatform } from './platform.js';
+import type { LightConfig, CycleLightSwitchesPlatform } from './platform.js';
 
 /**
  * The only thing that needs to survive Homebridge restarts. Stored on
@@ -36,7 +36,7 @@ export class VirtualLightAccessory {
   private switchServices: Service[] = [];
 
   constructor(
-    private readonly platform: VirtualLightSwitchesPlatform,
+    private readonly platform: CycleLightSwitchesPlatform,
     private readonly accessory: PlatformAccessory,
   ) {
     this.light = accessory.context.light as LightConfig;
@@ -58,7 +58,7 @@ export class VirtualLightAccessory {
     const switchLabel = this.light.switchCount === 1 ? 'Switch' : 'Switches';
 
     this.accessory.getService(Service.AccessoryInformation)!
-      .setCharacteristic(Characteristic.Manufacturer, 'Virtual Light Switches')
+      .setCharacteristic(Characteristic.Manufacturer, 'Cycle Light Switches')
       .setCharacteristic(Characteristic.Model, `On/Off Light + ${this.light.switchCount} ${switchLabel}`)
       .setCharacteristic(Characteristic.SerialNumber, this.light.name);
   }
