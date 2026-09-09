@@ -44,6 +44,21 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
     // restored all cached accessories from disk, which is signalled by this event.
     this.api.on('didFinishLaunching', () => {
       this.log.debug('Executed didFinishLaunching callback');
+
+      // Per the Homebridge Verified plugin requirements ("The plugin must successfully
+      // install and not start unless it is configured" -
+      // https://github.com/homebridge/plugins/wiki/Verified-Plugins): if the user hasn't
+      // configured any lights yet, and there's nothing previously registered that needs
+      // cleaning up, don't do anything at all rather than running discovery for its own
+      // sake.
+      if (!this.hasLightsConfigured() && this.accessories.size === 0) {
+        this.log.info(
+          'No lights are configured yet. Add at least one entry to the "lights" array in '
+          + 'this plugin\'s settings to use it. Nothing will happen until then.',
+        );
+        return;
+      }
+
       this.discoverDevices();
     });
   }
@@ -54,6 +69,11 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
   configureAccessory(accessory: PlatformAccessory) {
     this.log.info('Loading accessory from cache:', accessory.displayName);
     this.accessories.set(accessory.UUID, accessory);
+  }
+
+  /** Whether the config has at least one entry in its `lights` array. */
+  private hasLightsConfigured(): boolean {
+    return Array.isArray(this.config.lights) && this.config.lights.length > 0;
   }
 
   /**
