@@ -139,14 +139,14 @@ triggers and manual control is used in combination.
 
 1. In the Home app, set one or several automation triggers to turn on "Spotlights".
 2. On "Spotlights" there are Button 1, Button 2, Button 3. Use Button 1 and
-   Button 2 to control lights (or any devices). 
-3. Leave Button 3 empty, instead create an automation that turn off your scene/lights
+   Button 2 to control lights (or any devices) for two distinct scenes. 
+3. Leave Button 3 empty, instead create an automation that turns off your scene/lights
    when "Spotlights" is turned off.
 
-Since `turnOffOnCycleComplete` is on, the scene/lights will turn off anyway. They will
-also turn off when manually turning off "Spotlights" in the app, and `resetCountOnOff`
-prepares for the next automated trigger or manual turn on of "Spotlights" in the app to
-trigger the first switch (i.e. Button 1).
+Since `turnOffOnCycleComplete` is true, the scene/lights will turn off anyway on the third
+"turn on". They will also turn off when manually turning off "Spotlights" in the app, and
+`resetCountOnOff` prepares for the next automated trigger or manual "turn on" of "Spotlights"
+in the app to trigger the first switch (i.e. Button 1).
 
 ## Development
 
