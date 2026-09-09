@@ -2,7 +2,7 @@
   "name": "homebridge-cycle-light-switches",
   "displayName": "Cycle Light Switches",
   "type": "module",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Homebridge plugin that adds configurable virtual on/off lights, each paired with a configurable number of virtual single-press switches that fire in a round-robin sequence every time the light is turned on.",
   "author": "Anders Ljungh",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "node": "^18.20.4 || ^20.16.0 || ^22.0.0",
+    "node": "^18.20.4 || ^20.16.0 || ^22.0.0 || ^24.0.0 || ^26.0.0",
     "homebridge": "^1.8.0 || ^2.0.0"
   },
   "scripts": {
