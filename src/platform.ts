@@ -10,6 +10,7 @@ export interface LightConfig {
   name: string;
   switchCount: number;
   resetCountOnOff: boolean;
+  turnOffOnCycleComplete: boolean;
   switchNames?: string[];
 }
 
@@ -92,6 +93,7 @@ export class VirtualLightSwitchesPlatform implements DynamicPlatformPlugin {
         name,
         switchCount,
         resetCountOnOff: Boolean(raw?.resetCountOnOff),
+        turnOffOnCycleComplete: Boolean(raw?.turnOffOnCycleComplete),
         switchNames,
       });
     }

@@ -24,7 +24,9 @@ const SWITCH_SUBTYPE_PREFIX = 'switch-';
  * whether it was already on, e.g. because an automation re-fired "turn on" — the next
  * switch in the rotation fires a single-press event. The rotation position is a
  * monotonically increasing counter persisted in accessory.context; optionally it can be
- * reset back to the start whenever the light is turned off (`resetCountOnOff`).
+ * reset back to the start whenever the light is turned off (`resetCountOnOff`), and the
+ * light can optionally turn itself back off as soon as the last switch in the cycle fires
+ * (`turnOffOnCycleComplete`).
  */
 export class VirtualLightAccessory {
   private readonly light: LightConfig;
@@ -144,6 +146,11 @@ export class VirtualLightAccessory {
    * or an automation. Turning the light on (from any starting state) advances the
    * rotation and fires exactly one switch; turning it off never fires a switch, and only
    * resets the rotation if `resetCountOnOff` is enabled.
+   *
+   * If `turnOffOnCycleComplete` is enabled and the switch that just fired was the last one
+   * in the rotation, the light is immediately switched back off on its own (as if a
+   * momentary trigger), applying the same `resetCountOnOff` behavior that a user-initiated
+   * off would.
    */
   private async handleSetOn(value: CharacteristicValue) {
     const turningOn = value === true;
@@ -152,6 +159,7 @@ export class VirtualLightAccessory {
       this.state.count += 1;
       const switchIndex = (this.state.count - 1) % this.switchServices.length;
       const targetSwitch = this.switchServices[switchIndex];
+      const isLastInCycle = switchIndex === this.switchServices.length - 1;
 
       this.platform.log.info(
         `${this.light.name}: turned on (activation #${this.state.count}) → firing switch ${switchIndex + 1} of ${this.switchServices.length}`,
@@ -163,6 +171,19 @@ export class VirtualLightAccessory {
       );
 
       this.state.on = true;
+
+      if (isLastInCycle && this.light.turnOffOnCycleComplete) {
+        this.platform.log.info(`${this.light.name}: cycle complete → turning light back off`);
+        this.state.on = false;
+
+        if (this.light.resetCountOnOff) {
+          this.state.count = 0;
+        }
+
+        // Push the auto-off to HomeKit. This does not re-enter handleSetOn/onSet — it only
+        // notifies controllers, the same as any accessory reporting its own state change.
+        this.lightService.updateCharacteristic(this.platform.Characteristic.On, false);
+      }
     } else {
       this.platform.log.debug(`${this.light.name}: turned off`);
       this.state.on = false;

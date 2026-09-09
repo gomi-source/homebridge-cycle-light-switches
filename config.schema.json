@@ -41,6 +41,12 @@
               "default": false,
               "description": "Off (default): the rotation never resets — turning the light on repeatedly keeps cycling through the switches no matter how many times it's turned off in between. On: turning the light off resets the rotation, so the next time it's turned on, switch 1 fires again."
             },
+            "turnOffOnCycleComplete": {
+              "title": "Turn off the light when a cycle completes",
+              "type": "boolean",
+              "default": false,
+              "description": "Off (default): the light stays on after firing a switch. On: as soon as the last switch in the rotation fires, the light turns itself back off automatically (as if it were a momentary trigger). If \"Reset switch sequence when the light turns off\" is also enabled, this auto-off resets the rotation too."
+            },
             "switchNames": {
               "title": "Custom Switch Names (optional)",
               "type": "array",

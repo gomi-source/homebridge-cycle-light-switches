@@ -58,6 +58,12 @@ which reads `config.schema.json`):
           "switchCount": 2,
           "resetCountOnOff": true,
           "switchNames": ["Front Door Chime - Day", "Front Door Chime - Night"]
+        },
+        {
+          "name": "Doorbell Trigger",
+          "switchCount": 3,
+          "resetCountOnOff": true,
+          "turnOffOnCycleComplete": true
         }
       ]
     }
@@ -72,6 +78,7 @@ which reads `config.schema.json`):
 | `name` | string | — | Display name of the light. Must be unique. Renaming a light creates a new HomeKit accessory (and resets its switch counter), since the accessory identity is derived from the name. |
 | `switchCount` | integer | `1` | How many switches accompany this light. |
 | `resetCountOnOff` | boolean | `false` | See below. |
+| `turnOffOnCycleComplete` | boolean | `false` | See below. |
 | `switchNames` | string[] | — | Optional custom names for each switch, in order. Falls back to `"<Light Name> Switch <n>"`. |
 
 ## Behavior
@@ -88,6 +95,15 @@ no matter how many times the light was turned off in between.
 **`resetCountOnOff: true`** — turning the light off resets the rotation back to the
 start. With 2 switches: turning on twice fires `1, 2`; turning the light off; turning
 it on twice more fires `1, 2` again — i.e. the full sequence is `1, 2, (off), 1, 2`.
+
+**`turnOffOnCycleComplete: true`** — as soon as the switch that completes a full
+rotation fires (e.g. switch 3 of 3), the plugin turns the light back off on its own,
+immediately, as if it were a momentary trigger rather than something you leave on. This
+combines with `resetCountOnOff`: if both are enabled, that automatic off also resets
+the rotation, so the next "on" always starts the cycle from switch 1 again. With 3
+switches and both flags enabled, turning the light on three times in a row looks like:
+on → fires switch 1 → on → fires switch 2 → on → fires switch 3 → light turns itself
+off, rotation reset — the next "on" fires switch 1 again.
 
 Other than that reset, the rotation position is kept indefinitely: it's stored in
 Homebridge's accessory cache on disk, so it survives Homebridge restarts. It only
