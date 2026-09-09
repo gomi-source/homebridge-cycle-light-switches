@@ -3,7 +3,6 @@
   "displayName": "Virtual Light Switches",
   "type": "module",
   "version": "1.0.0",
-  "private": true,
   "description": "Homebridge plugin that adds configurable virtual on/off lights, each paired with a configurable number of virtual single-press switches that fire in a round-robin sequence every time the light is turned on.",
   "author": "Anders Ljungh",
   "license": "Apache-2.0",
