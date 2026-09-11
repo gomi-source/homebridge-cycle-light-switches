@@ -167,8 +167,11 @@ export class VirtualLightAccessory {
       this.inlineSwitchServices.push(service);
     }
 
-    // Clean up leftover switch services from a previously larger switchCount.
-    for (const service of this.accessory.services) {
+    // Clean up leftover switch services from a previously larger switchCount. Iterate a
+    // snapshot, not the live `services` array: `removeService` splices it in place, so
+    // removing while iterating it directly skips whichever service lands at the next
+    // index after each removal.
+    for (const service of [...this.accessory.services]) {
       if (service.UUID !== Service.StatelessProgrammableSwitch.UUID) {
         continue;
       }
@@ -184,7 +187,10 @@ export class VirtualLightAccessory {
   private removeInlineSwitchServices() {
     const { Service } = this.platform;
 
-    for (const service of this.accessory.services) {
+    // Iterate a snapshot, not the live `services` array — see the identical note in
+    // setupInlineSwitches' cleanup loop for why removing services while iterating it
+    // directly silently skips some of them.
+    for (const service of [...this.accessory.services]) {
       const isSwitchService = service.UUID === Service.StatelessProgrammableSwitch.UUID
         || service.UUID === Service.Switch.UUID
         || service.UUID === Service.ServiceLabel.UUID;
