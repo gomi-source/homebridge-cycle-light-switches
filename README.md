@@ -45,15 +45,21 @@ This plugin implements HAP services:
   "Button 1, Button 2, ..." stateless switches (which Home hardcodes those labels for,
   regardless of the name configured here).
 
-  Stateful switches live on a **separate accessory** from the light, named
-  "<Light Name> Switches" — they're not just extra services bolted onto the light's own
-  accessory. That's deliberate: Home collapses any accessory exposing more than one
-  controllable service into a secondary screen instead of a direct-tap tile, and the
-  light itself should stay a plain, one-tap on/off tile. The switches, which need a
-  picker between several options anyway, get that secondary-screen treatment on their
-  own accessory instead of dragging the light into it. Stateless switches don't need
-  this: a `StatelessProgrammableSwitch` never renders as a controllable tile in the
-  first place, so it's harmless to leave them nested inside the light's own accessory.
+  Stateful switches live on their **own standalone accessory each** — one accessory
+  per switch, not shared with the light or with each other. That's deliberate, for two
+  reasons. First, Home collapses any accessory exposing more than one controllable
+  service into a secondary picker screen instead of a direct-tap tile, so the switches
+  can't share the light's own accessory without dragging the light into that screen too.
+  Second — and this is the part that isn't obvious until you hit it — a `Switch` service
+  has no naming characteristic beyond its plain `Name`. If several switches shared *one*
+  accessory instead (as an earlier version of this plugin did), Home's automation picker
+  falls back to labelling every one of them with that shared accessory's name, making
+  them indistinguishable when you go to pick "which switch" for an action. A standalone
+  accessory per switch has no such ambiguity: the accessory's name *is* the switch's
+  name, everywhere in Home. The tradeoff is one extra paired accessory per switch.
+  Stateless switches don't have either problem: a `StatelessProgrammableSwitch` never
+  renders as a controllable tile in the first place, so it's harmless to leave several
+  of them nested inside the light's own accessory.
 
 ## Installation
 
@@ -144,19 +150,20 @@ both are enabled, both manual and automatic off resets the rotation, so the next
 "on" whether from trigger or button press, always starts the cycle from switch 1. 
 
 **`statefulSwitches: true`** — switches become settable, so something other than the
-light itself can pick which step fires next, and move to their own "<Light Name>
-Switches" accessory (see "How?" above for why). Turning a specific switch on directly
-(from a scene, an automation action, or a tap in the Home app) jumps the rotation to
-it — regardless of what the rotation was doing before — so the *next* time the light
-turns on, it fires the switch that follows the one you triggered. For example, with 3
-switches, triggering Switch 1 directly and then turning the light on fires Switch 2,
-even if the rotation had already moved past Switch 1 long ago. Whether a switch fired
-because the light turned on or because it was triggered directly, it turns itself back
-off about a second later, so it's always ready to be triggered again.
+light itself can pick which step fires next, and each one moves to its own standalone
+accessory, named for that switch specifically (e.g. "Kitchen Scene Switch 2") — see
+"How?" above for why they can't share an accessory. Turning a specific switch on
+directly (from a scene, an automation action, or a tap in the Home app) jumps the
+rotation to it — regardless of what the rotation was doing before — so the *next* time
+the light turns on, it fires the switch that follows the one you triggered. For
+example, with 3 switches, triggering Switch 1 directly and then turning the light on
+fires Switch 2, even if the rotation had already moved past Switch 1 long ago. Whether
+a switch fired because the light turned on or because it was triggered directly, it
+turns itself back off about a second later, so it's always ready to be triggered again.
 
 Toggling `statefulSwitches` for a light you've already set up in Home doesn't lose the
 light's own history: the light keeps its accessory (and its rotation position) either
-way, and only the switches move in or out of their own accessory.
+way, and only the switches move in or out of their own standalone accessories.
 
 Other than a reset, the rotation position is kept indefinitely: it's stored in
 Homebridge's accessory cache on disk, so it survives Homebridge restarts. It only
@@ -199,7 +206,8 @@ runs next, instead of always advancing to "whatever's next". For example, with a
 
 1. Enable `statefulSwitches` for "Kitchen Scene".
 2. Create an automation: some condition (e.g. a specific wall switch, time of day, or
-   sensor) sets "Switch 2" to on, on the "Kitchen Scene Switches" accessory.
+   sensor) sets "Kitchen Scene Switch 2" to on — it's its own accessory, listed
+   separately from "Kitchen Scene" itself and from the other switches.
 3. The next time anything turns "Kitchen Scene" on — a different automation, or the
    Home app — it fires Switch 3, not whatever the rotation would otherwise have been
    on. Triggering a switch directly always determines what the *following* "on" does.

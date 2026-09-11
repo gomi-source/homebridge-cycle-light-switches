@@ -1,7 +1,10 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
 import type { LightConfig, CycleLightSwitchesPlatform } from './platform.js';
-import { SWITCH_SUBTYPE_PREFIX } from './switchBankAccessory.js';
+
+/** Distinguishes each stateless switch service's subtype on the light's own accessory
+ * (stateful switches don't need this — they're one-per-accessory, no subtype needed). */
+const SWITCH_SUBTYPE_PREFIX = 'switch-';
 
 /**
  * The only thing that needs to survive Homebridge restarts. Stored on
@@ -20,9 +23,9 @@ interface PersistedState {
 }
 
 /** Something that can physically fire one of the light's switches. Implemented either
- * inline (stateless switches, on this same accessory) or by a separate
- * VirtualSwitchBankAccessory (stateful switches — see platform.ts for why they're split
- * into their own accessory). */
+ * inline (stateless switches, on this same accessory) or by a set of standalone
+ * VirtualSwitchAccessory instances, one per switch (stateful switches — see platform.ts
+ * for why each gets its own accessory). */
 interface SwitchBank {
   fireSwitch(switchNumber: number): void;
 }
@@ -42,12 +45,12 @@ interface SwitchBank {
  * By default the switches are stateless, single-press-only HAP `StatelessProgrammableSwitch`
  * services living right here on this same accessory (grouped under a ServiceLabel when
  * there's more than one) — HomeKit's closest equivalent to a Matter "Generic Switch"
- * configured for single press. When `statefulSwitches` is enabled, the switches move to a
- * separate VirtualSwitchBankAccessory instead (attached via `attachSwitchBank`), exposed
- * as ordinary settable HAP `Switch` services: still momentary, but now a scene or
- * automation can turn a *specific* switch on directly, which jumps the rotation to it via
- * `jumpToSwitch` — the next "on" always fires the one after it, regardless of where the
- * rotation was before.
+ * configured for single press. When `statefulSwitches` is enabled, each switch instead
+ * moves to its own standalone VirtualSwitchAccessory (attached via `attachSwitchBank`),
+ * exposed as an ordinary settable HAP `Switch` service: still momentary, but now a scene
+ * or automation can turn a *specific* switch on directly, which jumps the rotation to it
+ * via `jumpToSwitch` — the next "on" always fires the one after it, regardless of where
+ * the rotation was before.
  */
 export class VirtualLightAccessory {
   private readonly light: LightConfig;
