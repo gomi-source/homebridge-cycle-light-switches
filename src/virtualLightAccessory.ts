@@ -1,6 +1,7 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
 import type { LightConfig, CycleLightSwitchesPlatform } from './platform.js';
+import { SWITCH_SUBTYPE_PREFIX } from './switchBankAccessory.js';
 
 /**
  * The only thing that needs to survive Homebridge restarts. Stored on
@@ -18,40 +19,47 @@ interface PersistedState {
   on: boolean;
 }
 
-const SWITCH_SUBTYPE_PREFIX = 'switch-';
-
-/** How long a stateful switch stays "on" after firing before it reverts to "off" on its
- * own, so it behaves as a momentary trigger — a scene or automation can turn it on again
- * (and a manual Home app tap can turn it back on) without needing something else to turn
- * it off first. */
-const STATEFUL_SWITCH_RESET_MS = 1000;
+/** Something that can physically fire one of the light's switches. Implemented either
+ * inline (stateless switches, on this same accessory) or by a separate
+ * VirtualSwitchBankAccessory (stateful switches — see platform.ts for why they're split
+ * into their own accessory). */
+interface SwitchBank {
+  fireSwitch(switchNumber: number): void;
+}
 
 /**
  * VirtualLightAccessory
  *
- * Represents one virtual on/off light plus its `switchCount` switches. Every time the
- * light's On characteristic is set to `true` — regardless of whether it was already on,
- * e.g. because an automation re-fired "turn on" — the next switch in the rotation fires.
- * The rotation position is persisted in accessory.context; optionally it can be reset
- * back to the start whenever the light is turned off (`resetCountOnOff`), and the light
- * can optionally turn itself back off as soon as the last switch in the cycle fires
- * (`turnOffOnCycleComplete`).
+ * Represents one virtual on/off light (a HAP Lightbulb service exposing only the On
+ * characteristic — nothing else lives on this accessory, so it stays a single, direct-tap
+ * tile in the Home app; see platform.ts for why). Every time its On characteristic is set
+ * to `true` — regardless of whether it was already on, e.g. because an automation
+ * re-fired "turn on" — the next switch in the rotation fires. The rotation position is
+ * persisted in accessory.context; optionally it can be reset back to the start whenever
+ * the light is turned off (`resetCountOnOff`), and the light can optionally turn itself
+ * back off as soon as the last switch in the cycle fires (`turnOffOnCycleComplete`).
  *
  * By default the switches are stateless, single-press-only HAP `StatelessProgrammableSwitch`
- * services — HomeKit's closest equivalent to a Matter "Generic Switch" configured for
- * single press. When `statefulSwitches` is enabled for a light, they're exposed instead as
- * ordinary HAP `Switch` services: still momentary (see STATEFUL_SWITCH_RESET_MS above), but
- * now settable, so a scene or automation can turn a *specific* switch on directly. Doing so
- * jumps the rotation to that switch, so the next "on" always fires the one after it,
- * regardless of where the rotation was before.
+ * services living right here on this same accessory (grouped under a ServiceLabel when
+ * there's more than one) — HomeKit's closest equivalent to a Matter "Generic Switch"
+ * configured for single press. When `statefulSwitches` is enabled, the switches move to a
+ * separate VirtualSwitchBankAccessory instead (attached via `attachSwitchBank`), exposed
+ * as ordinary settable HAP `Switch` services: still momentary, but now a scene or
+ * automation can turn a *specific* switch on directly, which jumps the rotation to it via
+ * `jumpToSwitch` — the next "on" always fires the one after it, regardless of where the
+ * rotation was before.
  */
 export class VirtualLightAccessory {
   private readonly light: LightConfig;
   private readonly state: PersistedState;
 
   private lightService!: Service;
-  private switchServices: Service[] = [];
-  private readonly statefulResetTimers = new Map<Service, NodeJS.Timeout>();
+
+  // Stateless mode only: the switch services live on this accessory.
+  private inlineSwitchServices: Service[] = [];
+
+  // Stateful mode only: switches live on a separate accessory, reached through this.
+  private switchBank?: SwitchBank;
 
   constructor(
     private readonly platform: CycleLightSwitchesPlatform,
@@ -68,16 +76,29 @@ export class VirtualLightAccessory {
 
     this.setupAccessoryInformation();
     this.setupLight();
-    this.setupSwitches();
+
+    if (this.light.statefulSwitches) {
+      // Switches live on a separate accessory now; strip out any left behind on this one
+      // from before `statefulSwitches` was enabled (or from the single-accessory design
+      // used before this accessory split existed).
+      this.removeInlineSwitchServices();
+    } else {
+      this.setupInlineSwitches();
+    }
+  }
+
+  /** Wires up the companion switch-bank accessory for a `statefulSwitches` light. Called
+   * by the platform right after constructing both accessories. */
+  attachSwitchBank(bank: SwitchBank) {
+    this.switchBank = bank;
   }
 
   private setupAccessoryInformation() {
     const { Service, Characteristic } = this.platform;
-    const switchLabel = this.light.switchCount === 1 ? 'Switch' : 'Switches';
 
     this.accessory.getService(Service.AccessoryInformation)!
       .setCharacteristic(Characteristic.Manufacturer, 'Cycle Light Switches')
-      .setCharacteristic(Characteristic.Model, `On/Off Light + ${this.light.switchCount} ${switchLabel}`)
+      .setCharacteristic(Characteristic.Model, 'On/Off Light')
       .setCharacteristic(Characteristic.SerialNumber, this.light.name);
   }
 
@@ -99,82 +120,77 @@ export class VirtualLightAccessory {
   }
 
   /**
-   * Sets up `switchCount` switches, either stateless (default) or stateful
-   * (`statefulSwitches`) — see the class doc comment above for the difference.
-   *
-   * Stateless switches are grouped under a Service Label when there's more than one,
-   * which is the standard HomeKit pattern for exposing several buttons on one accessory
-   * (stateful switches don't need this — each is independently named and controllable).
+   * Sets up `switchCount` stateless, single-press-only switches on this same accessory.
+   * Grouped under a Service Label when there's more than one, which is the standard
+   * HomeKit pattern for exposing several buttons on one accessory.
    */
-  private setupSwitches() {
+  private setupInlineSwitches() {
     const { Service, Characteristic } = this.platform;
     const count = Math.max(1, this.light.switchCount);
-    const stateful = this.light.statefulSwitches;
 
-    const wantedType = stateful ? Service.Switch : Service.StatelessProgrammableSwitch;
-    const staleType = stateful ? Service.StatelessProgrammableSwitch : Service.Switch;
-
-    // Drop any switches left over from a previous `statefulSwitches` setting for this light.
-    for (const service of this.accessory.services) {
-      if (service.UUID === staleType.UUID && (service.subtype ?? '').startsWith(SWITCH_SUBTYPE_PREFIX)) {
-        this.clearStatefulResetTimer(service);
-        this.accessory.removeService(service);
-      }
-    }
-
-    // Service Label only applies to grouped stateless switches.
     let labelService: Service | undefined;
-    const existingLabel = this.accessory.getService(Service.ServiceLabel);
-    if (!stateful && count > 1) {
-      labelService = existingLabel || this.accessory.addService(Service.ServiceLabel);
+    if (count > 1) {
+      labelService = this.accessory.getService(Service.ServiceLabel)
+        || this.accessory.addService(Service.ServiceLabel);
       labelService.setCharacteristic(
         Characteristic.ServiceLabelNamespace,
         Characteristic.ServiceLabelNamespace.ARABIC_NUMERALS,
       );
-    } else if (existingLabel) {
-      this.accessory.removeService(existingLabel);
+    } else {
+      const existingLabel = this.accessory.getService(Service.ServiceLabel);
+      if (existingLabel) {
+        this.accessory.removeService(existingLabel);
+      }
     }
 
-    this.switchServices = [];
+    this.inlineSwitchServices = [];
 
     for (let i = 1; i <= count; i++) {
       const subtype = `${SWITCH_SUBTYPE_PREFIX}${i}`;
       const name = this.light.switchNames?.[i - 1] || `${this.light.name} Switch ${i}`;
 
-      const service = this.accessory.getServiceById(wantedType, subtype)
-        || this.accessory.addService(wantedType, name, subtype);
+      const service = this.accessory.getServiceById(Service.StatelessProgrammableSwitch, subtype)
+        || this.accessory.addService(Service.StatelessProgrammableSwitch, name, subtype);
 
       service.setCharacteristic(Characteristic.Name, name);
+      service.setCharacteristic(Characteristic.ServiceLabelIndex, i);
 
-      if (stateful) {
-        // Settable: a scene, automation, or Home app tap can turn a specific switch on
-        // directly, which jumps the rotation to it (see handleSetSwitchOn).
-        service.getCharacteristic(Characteristic.On)
-          .onSet(this.handleSetSwitchOn.bind(this, i));
-        // Always start "off" — if Homebridge restarted mid-reset, don't strand it "on".
-        service.updateCharacteristic(Characteristic.On, false);
-      } else {
-        service.setCharacteristic(Characteristic.ServiceLabelIndex, i);
-        // Restrict to single-press only, since that's all this plugin ever fires.
-        service.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
-          .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
-        labelService?.addLinkedService(service);
-      }
+      // Restrict to single-press only, since that's all this plugin ever fires.
+      service.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+        .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
 
-      this.switchServices.push(service);
+      labelService?.addLinkedService(service);
+
+      this.inlineSwitchServices.push(service);
     }
 
     // Clean up leftover switch services from a previously larger switchCount.
     for (const service of this.accessory.services) {
-      if (service.UUID !== wantedType.UUID) {
+      if (service.UUID !== Service.StatelessProgrammableSwitch.UUID) {
         continue;
       }
       const index = Number((service.subtype ?? '').replace(SWITCH_SUBTYPE_PREFIX, ''));
       if (!Number.isFinite(index) || index < 1 || index > count) {
-        this.clearStatefulResetTimer(service);
         this.accessory.removeService(service);
       }
     }
+  }
+
+  /** Removes any switch-related services from this accessory (stateful mode: they belong
+   * on the separate switch-bank accessory instead). */
+  private removeInlineSwitchServices() {
+    const { Service } = this.platform;
+
+    for (const service of this.accessory.services) {
+      const isSwitchService = service.UUID === Service.StatelessProgrammableSwitch.UUID
+        || service.UUID === Service.Switch.UUID
+        || service.UUID === Service.ServiceLabel.UUID;
+      if (isSwitchService) {
+        this.accessory.removeService(service);
+      }
+    }
+
+    this.inlineSwitchServices = [];
   }
 
   /**
@@ -190,17 +206,19 @@ export class VirtualLightAccessory {
    */
   private async handleSetOn(value: CharacteristicValue) {
     const turningOn = value === true;
+    const switchCount = Math.max(1, this.light.switchCount);
 
     if (turningOn) {
       this.state.count += 1;
-      const switchIndex = (this.state.count - 1) % this.switchServices.length;
-      const isLastInCycle = switchIndex === this.switchServices.length - 1;
+      const switchIndex = (this.state.count - 1) % switchCount;
+      const switchNumber = switchIndex + 1;
+      const isLastInCycle = switchIndex === switchCount - 1;
 
       this.platform.log.info(
-        `${this.light.name}: turned on (activation #${this.state.count}) → firing switch ${switchIndex + 1} of ${this.switchServices.length}`,
+        `${this.light.name}: turned on (activation #${this.state.count}) → firing switch ${switchNumber} of ${switchCount}`,
       );
 
-      this.fireSwitch(switchIndex);
+      this.fireSwitch(switchNumber);
 
       this.state.on = true;
 
@@ -229,20 +247,13 @@ export class VirtualLightAccessory {
   }
 
   /**
-   * Handles a scene, automation, or Home app tap turning one specific stateful switch on
-   * directly (only wired up when `statefulSwitches` is enabled). This jumps the rotation
-   * to that switch — regardless of where it was before — so the *next* time the light is
-   * turned on, it fires the switch that follows this one.
+   * Called by the switch-bank accessory (stateful mode only) when a scene, automation, or
+   * Home app tap turns one specific switch on directly. Jumps the rotation to that
+   * switch — regardless of where it was before — so the *next* time the light is turned
+   * on, it fires the switch that follows this one.
    */
-  private async handleSetSwitchOn(switchNumber: number, value: CharacteristicValue) {
-    if (value !== true) {
-      // Ignore explicit "off" writes; our own auto-reset (see scheduleStatefulSwitchReset)
-      // already turns it back off, and that uses updateCharacteristic, not a "set" — so it
-      // never reaches here.
-      return;
-    }
-
-    const switchCount = this.switchServices.length;
+  jumpToSwitch(switchNumber: number) {
+    const switchCount = Math.max(1, this.light.switchCount);
     const nextSwitch = (switchNumber % switchCount) + 1;
 
     this.platform.log.info(
@@ -251,46 +262,21 @@ export class VirtualLightAccessory {
 
     this.state.count = switchNumber;
     this.persistState();
-
-    this.scheduleStatefulSwitchReset(this.switchServices[switchNumber - 1]);
   }
 
-  /** Fires switch `switchIndex` (0-based): a single-press event, or a momentary on/off
-   * pulse, depending on `statefulSwitches`. */
-  private fireSwitch(switchIndex: number) {
-    const service = this.switchServices[switchIndex];
-
-    if (this.light.statefulSwitches) {
-      service.updateCharacteristic(this.platform.Characteristic.On, true);
-      this.scheduleStatefulSwitchReset(service);
-    } else {
-      service.updateCharacteristic(
-        this.platform.Characteristic.ProgrammableSwitchEvent,
-        this.platform.Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
-      );
+  /** Fires switch `switchNumber` (1-based): via the external switch bank (stateful mode),
+   * or a single-press event on this accessory's own switch service (stateless mode). */
+  private fireSwitch(switchNumber: number) {
+    if (this.switchBank) {
+      this.switchBank.fireSwitch(switchNumber);
+      return;
     }
-  }
 
-  /** Turns a stateful switch back off after STATEFUL_SWITCH_RESET_MS, so it behaves as a
-   * momentary trigger rather than a toggle that stays on. Restarts the timer if the same
-   * switch fires again before the previous one elapsed. */
-  private scheduleStatefulSwitchReset(service: Service) {
-    this.clearStatefulResetTimer(service);
-
-    const timer = setTimeout(() => {
-      this.statefulResetTimers.delete(service);
-      service.updateCharacteristic(this.platform.Characteristic.On, false);
-    }, STATEFUL_SWITCH_RESET_MS);
-
-    this.statefulResetTimers.set(service, timer);
-  }
-
-  private clearStatefulResetTimer(service: Service) {
-    const timer = this.statefulResetTimers.get(service);
-    if (timer) {
-      clearTimeout(timer);
-      this.statefulResetTimers.delete(service);
-    }
+    const service = this.inlineSwitchServices[switchNumber - 1];
+    service.updateCharacteristic(
+      this.platform.Characteristic.ProgrammableSwitchEvent,
+      this.platform.Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+    );
   }
 
   private persistState() {

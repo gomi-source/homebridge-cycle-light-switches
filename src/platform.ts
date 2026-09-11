@@ -1,6 +1,7 @@
 import type { API, Characteristic, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig, Service } from 'homebridge';
 
 import { VirtualLightAccessory } from './virtualLightAccessory.js';
+import { VirtualSwitchBankAccessory } from './switchBankAccessory.js';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 
 /**
@@ -18,10 +19,23 @@ export interface LightConfig {
 /**
  * CycleLightSwitchesPlatform
  *
- * Reads the `lights` array from the plugin config and maintains one accessory per light.
- * Each accessory exposes an on/off-only Lightbulb service plus `switchCount` stateless,
- * single-press "Generic Switch" services. See `virtualLightAccessory.ts` for the
- * round-robin firing logic.
+ * Reads the `lights` array from the plugin config and maintains one or two accessories
+ * per light:
+ *
+ * - Always, a light-only accessory (see `virtualLightAccessory.ts`) exposing an
+ *   on/off-only Lightbulb service — nothing else, so it stays a single, direct-tap tile
+ *   in the Home app.
+ * - When `statefulSwitches` is enabled for that light, a second, separate accessory
+ *   (see `switchBankAccessory.ts`) holding all of its switches. Splitting them out is
+ *   deliberate: an accessory with more than one controllable service (the light plus
+ *   several switches) loses its single-tap tile in Home and opens a secondary screen
+ *   instead, which is exactly what we don't want for the light itself. The switches,
+ *   which need a picker between several options anyway, get their own accessory instead.
+ *
+ * When `statefulSwitches` is off (the default), the switches are stateless
+ * "single press" buttons and stay nested inside the light's own accessory, since
+ * StatelessProgrammableSwitch services don't render as controllable tiles in the first
+ * place — there's no secondary-screen problem to design around there.
  */
 export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
@@ -124,8 +138,30 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Creates/updates one accessory per configured light, and removes accessories for
-   * lights that have been deleted from the config.
+   * Restores an accessory with the given UUID from the cache, or creates and registers a
+   * new one. Either way, refreshes `context.light` and returns the raw PlatformAccessory.
+   */
+  private getOrCreateAccessory(uuid: string, displayName: string, light: LightConfig, kind: string): PlatformAccessory {
+    const existing = this.accessories.get(uuid);
+
+    if (existing) {
+      this.log.info(`Restoring existing ${kind} accessory from cache:`, existing.displayName);
+      existing.context.light = light;
+      existing.displayName = displayName;
+      this.api.updatePlatformAccessories([existing]);
+      return existing;
+    }
+
+    this.log.info(`Adding new ${kind} accessory:`, displayName);
+    const accessory = new this.api.platformAccessory(displayName, uuid);
+    accessory.context.light = light;
+    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    return accessory;
+  }
+
+  /**
+   * Creates/updates one or two accessories per configured light, and removes accessories
+   * for lights (or switch banks) that have been deleted or turned off in the config.
    */
   discoverDevices() {
     const lights = this.getLightConfigs();
@@ -135,36 +171,31 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
     }
 
     for (const light of lights) {
-      // The UUID is derived from the light's name, so renaming a light in the config
-      // will create a new HomeKit accessory (and a fresh switch counter).
-      const uuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}-light-${light.name}`);
-      const existingAccessory = this.accessories.get(uuid);
+      // UUIDs are derived from the light's name, so renaming a light in the config will
+      // create fresh HomeKit accessories (and a fresh switch counter).
+      const lightUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}-light-${light.name}`);
+      const lightAccessory = this.getOrCreateAccessory(lightUuid, light.name, light, 'light');
+      this.discoveredCacheUUIDs.push(lightUuid);
 
-      if (existingAccessory) {
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+      const lightHandler = new VirtualLightAccessory(this, lightAccessory);
 
-        // Refresh the config-derived fields, but leave `context.state` (the persisted
-        // switch counter) untouched — that's handled inside VirtualLightAccessory.
-        existingAccessory.context.light = light;
-        existingAccessory.displayName = light.name;
-        this.api.updatePlatformAccessories([existingAccessory]);
+      if (light.statefulSwitches) {
+        const switchesUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}-switches-${light.name}`);
+        const switchesDisplayName = `${light.name} Switches`;
+        const switchesAccessory = this.getOrCreateAccessory(switchesUuid, switchesDisplayName, light, 'switch bank');
+        this.discoveredCacheUUIDs.push(switchesUuid);
 
-        new VirtualLightAccessory(this, existingAccessory);
-      } else {
-        this.log.info('Adding new accessory:', light.name);
-
-        const accessory = new this.api.platformAccessory(light.name, uuid);
-        accessory.context.light = light;
-
-        new VirtualLightAccessory(this, accessory);
-
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+        const switchBank = new VirtualSwitchBankAccessory(
+          this,
+          switchesAccessory,
+          light,
+          (switchNumber) => lightHandler.jumpToSwitch(switchNumber),
+        );
+        lightHandler.attachSwitchBank(switchBank);
       }
-
-      this.discoveredCacheUUIDs.push(uuid);
     }
 
-    // Remove any cached accessories for lights that are no longer in the config.
+    // Remove any cached accessories for lights (or switch banks) no longer in the config.
     for (const [uuid, accessory] of this.accessories) {
       if (!this.discoveredCacheUUIDs.includes(uuid)) {
         this.log.info('Removing accessory no longer present in config:', accessory.displayName);

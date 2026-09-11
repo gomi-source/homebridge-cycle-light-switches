@@ -45,6 +45,16 @@ This plugin implements HAP services:
   "Button 1, Button 2, ..." stateless switches (which Home hardcodes those labels for,
   regardless of the name configured here).
 
+  Stateful switches live on a **separate accessory** from the light, named
+  "<Light Name> Switches" — they're not just extra services bolted onto the light's own
+  accessory. That's deliberate: Home collapses any accessory exposing more than one
+  controllable service into a secondary screen instead of a direct-tap tile, and the
+  light itself should stay a plain, one-tap on/off tile. The switches, which need a
+  picker between several options anyway, get that secondary-screen treatment on their
+  own accessory instead of dragging the light into it. Stateless switches don't need
+  this: a `StatelessProgrammableSwitch` never renders as a controllable tile in the
+  first place, so it's harmless to leave them nested inside the light's own accessory.
+
 ## Installation
 
 ```bash
@@ -134,14 +144,19 @@ both are enabled, both manual and automatic off resets the rotation, so the next
 "on" whether from trigger or button press, always starts the cycle from switch 1. 
 
 **`statefulSwitches: true`** — switches become settable, so something other than the
-light itself can pick which step fires next. Turning a specific switch on directly (from
-a scene, an automation action, or a tap in the Home app) jumps the rotation to it —
-regardless of what the rotation was doing before — so the *next* time the light turns
-on, it fires the switch that follows the one you triggered. For example, with 3
+light itself can pick which step fires next, and move to their own "<Light Name>
+Switches" accessory (see "How?" above for why). Turning a specific switch on directly
+(from a scene, an automation action, or a tap in the Home app) jumps the rotation to
+it — regardless of what the rotation was doing before — so the *next* time the light
+turns on, it fires the switch that follows the one you triggered. For example, with 3
 switches, triggering Switch 1 directly and then turning the light on fires Switch 2,
 even if the rotation had already moved past Switch 1 long ago. Whether a switch fired
 because the light turned on or because it was triggered directly, it turns itself back
 off about a second later, so it's always ready to be triggered again.
+
+Toggling `statefulSwitches` for a light you've already set up in Home doesn't lose the
+light's own history: the light keeps its accessory (and its rotation position) either
+way, and only the switches move in or out of their own accessory.
 
 Other than a reset, the rotation position is kept indefinitely: it's stored in
 Homebridge's accessory cache on disk, so it survives Homebridge restarts. It only
@@ -184,7 +199,7 @@ runs next, instead of always advancing to "whatever's next". For example, with a
 
 1. Enable `statefulSwitches` for "Kitchen Scene".
 2. Create an automation: some condition (e.g. a specific wall switch, time of day, or
-   sensor) sets "Kitchen Scene Switch 2" to on.
+   sensor) sets "Switch 2" to on, on the "Kitchen Scene Switches" accessory.
 3. The next time anything turns "Kitchen Scene" on — a different automation, or the
    Home app — it fires Switch 3, not whatever the rotation would otherwise have been
    on. Triggering a switch directly always determines what the *following* "on" does.

@@ -51,7 +51,7 @@
               "title": "Make switches directly triggerable",
               "type": "boolean",
               "default": false,
-              "description": "Off (default): switches are read-only \"single press\" buttons you can only react to, not trigger yourself. On: switches become ordinary settable HomeKit switches, so a scene, automation, or a tap in the Home app can turn a specific switch on directly. Doing so jumps the rotation to that switch, so the next time the light turns on, it fires the switch that follows it - regardless of where the rotation was before. Either way, a fired switch turns itself back off about a second later, so it can be triggered again."
+              "description": "Off (default): switches are read-only \"single press\" buttons you can only react to, not trigger yourself, and live inside this light's own accessory. On: switches become ordinary settable HomeKit switches, moved to a separate \"<Light Name> Switches\" accessory (so the light itself stays a single-tap tile in the Home app instead of opening a screen listing every switch). A scene, automation, or a tap on one of those switches can then turn it on directly, which jumps the rotation to it, so the next time the light turns on, it fires the switch that follows - regardless of where the rotation was before. Either way, a fired switch turns itself back off about a second later, so it can be triggered again."
             },
             "switchNames": {
               "title": "Custom Switch Names (optional)",
