@@ -28,11 +28,22 @@ This plugin implements HAP services:
 
 - **Light** → a HAP `Lightbulb` service exposing only the `On` characteristic (no
   brightness/color) — an on/off-only light.
-- **Switch** → a HAP `StatelessProgrammableSwitch` service, restricted to only ever
-  report a `SINGLE_PRESS` event — HomeKit's stateless "button" accessory type, which is
-  what Home/Homebridge calls a Generic Switch, configured for single press only. When a
-  light has more than one switch, they're grouped under a `ServiceLabel` service, which
-  is the standard HomeKit pattern for exposing several buttons on one accessory.
+- **Switch** → by default, a HAP `StatelessProgrammableSwitch` service, restricted to
+  only ever report a `SINGLE_PRESS` event — HomeKit's stateless "button" accessory type,
+  which is what Home/Homebridge calls a Generic Switch, configured for single press
+  only. When a light has more than one switch, they're grouped under a `ServiceLabel`
+  service, which is the standard HomeKit pattern for exposing several buttons on one
+  accessory. These switches are read-only: you can react to them, but nothing can
+  trigger one directly, since a stateless switch has no "on" state to set.
+- **Stateful switch** (`statefulSwitches: true`) → an ordinary HAP `Switch` service
+  instead — the same service type used for a plain HomeKit switch accessory. It's still
+  momentary (it turns itself back off about a second after firing), but because it's a
+  regular settable on/off characteristic, a scene, automation, or a tap in the Home app
+  can turn a *specific* switch on directly, jumping the rotation to it. This is how you
+  let something other than "turn the light on" pick which step comes next. As a bonus,
+  each one is also individually renameable in the Home app, unlike the grouped
+  "Button 1, Button 2, ..." stateless switches (which Home hardcodes those labels for,
+  regardless of the name configured here).
 
 ## Installation
 
@@ -74,6 +85,12 @@ which reads `config.schema.json`):
           "switchCount": 2,
           "resetCountOnOff": true,
           "switchNames": ["Front Door Chime First", "Front Door Chime Second"]
+        },
+        {
+          "name": "Evening Routine",
+          "switchCount": 3,
+          "resetCountOnOff": true,
+          "statefulSwitches": true
         }
       ]
     }
@@ -89,6 +106,7 @@ which reads `config.schema.json`):
 | `switchCount` | integer | `1` | How many switches accompany this light. |
 | `resetCountOnOff` | boolean | `false` | See below. |
 | `turnOffOnCycleComplete` | boolean | `false` | See below. |
+| `statefulSwitches` | boolean | `false` | See below. |
 | `switchNames` | string[] | — | Optional custom names for each switch, in order. Falls back to `"<Light Name> Switch <n>"`. |
 
 ## Behavior
@@ -115,7 +133,17 @@ Home app (see Advanced cycle below). This combines with `resetCountOnOff`: if
 both are enabled, both manual and automatic off resets the rotation, so the next
 "on" whether from trigger or button press, always starts the cycle from switch 1. 
 
-Other than that reset, the rotation position is kept indefinitely: it's stored in
+**`statefulSwitches: true`** — switches become settable, so something other than the
+light itself can pick which step fires next. Turning a specific switch on directly (from
+a scene, an automation action, or a tap in the Home app) jumps the rotation to it —
+regardless of what the rotation was doing before — so the *next* time the light turns
+on, it fires the switch that follows the one you triggered. For example, with 3
+switches, triggering Switch 1 directly and then turning the light on fires Switch 2,
+even if the rotation had already moved past Switch 1 long ago. Whether a switch fired
+because the light turned on or because it was triggered directly, it turns itself back
+off about a second later, so it's always ready to be triggered again.
+
+Other than a reset, the rotation position is kept indefinitely: it's stored in
 Homebridge's accessory cache on disk, so it survives Homebridge restarts. It only
 resets to zero if you explicitly enable `resetCountOnOff`, or if the accessory is
 removed (e.g. by renaming the light or deleting it from the config).
@@ -147,6 +175,23 @@ Since `turnOffOnCycleComplete` is true, the scene/lights will turn off anyway on
 "turn on". They will also turn off when manually turning off "Spotlights" in the app, and
 `resetCountOnOff` prepares for the next automated trigger or manual "turn on" of "Spotlights"
 in the app to trigger the first switch (i.e. Button 1).
+
+### Jumping to a specific step
+
+Set `statefulSwitches: true` on a light to let an automation or scene pick which step
+runs next, instead of always advancing to "whatever's next". For example, with a
+3-switch "Kitchen Scene" light:
+
+1. Enable `statefulSwitches` for "Kitchen Scene".
+2. Create an automation: some condition (e.g. a specific wall switch, time of day, or
+   sensor) sets "Kitchen Scene Switch 2" to on.
+3. The next time anything turns "Kitchen Scene" on — a different automation, or the
+   Home app — it fires Switch 3, not whatever the rotation would otherwise have been
+   on. Triggering a switch directly always determines what the *following* "on" does.
+
+This is useful when you want an external condition to steer the cycle (e.g. "if it's
+after sunset, the next toggle should jump straight to the night scene") without having
+to also fire that scene's own action a second time.
 
 ## Development
 

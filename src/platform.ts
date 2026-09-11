@@ -11,6 +11,7 @@ export interface LightConfig {
   switchCount: number;
   resetCountOnOff: boolean;
   turnOffOnCycleComplete: boolean;
+  statefulSwitches: boolean;
   switchNames?: string[];
 }
 
@@ -114,6 +115,7 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
         switchCount,
         resetCountOnOff: Boolean(raw?.resetCountOnOff),
         turnOffOnCycleComplete: Boolean(raw?.turnOffOnCycleComplete),
+        statefulSwitches: Boolean(raw?.statefulSwitches),
         switchNames,
       });
     }

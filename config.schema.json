@@ -47,6 +47,12 @@
               "default": false,
               "description": "Off (default): the light stays on after firing a switch. On: as soon as the last switch in the rotation fires, the light turns itself back off automatically (as if it were a momentary trigger). If \"Reset switch sequence when the light turns off\" is also enabled, this auto-off resets the rotation too."
             },
+            "statefulSwitches": {
+              "title": "Make switches directly triggerable",
+              "type": "boolean",
+              "default": false,
+              "description": "Off (default): switches are read-only \"single press\" buttons you can only react to, not trigger yourself. On: switches become ordinary settable HomeKit switches, so a scene, automation, or a tap in the Home app can turn a specific switch on directly. Doing so jumps the rotation to that switch, so the next time the light turns on, it fires the switch that follows it - regardless of where the rotation was before. Either way, a fired switch turns itself back off about a second later, so it can be triggered again."
+            },
             "switchNames": {
               "title": "Custom Switch Names (optional)",
               "type": "array",
