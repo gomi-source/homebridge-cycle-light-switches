@@ -56,10 +56,14 @@ This plugin implements HAP services:
   falls back to labelling every one of them with that shared accessory's name, making
   them indistinguishable when you go to pick "which switch" for an action. A standalone
   accessory per switch has no such ambiguity: the accessory's name *is* the switch's
-  name, everywhere in Home. The tradeoff is one extra paired accessory per switch.
-  Stateless switches don't have either problem: a `StatelessProgrammableSwitch` never
-  renders as a controllable tile in the first place, so it's harmless to leave several
-  of them nested inside the light's own accessory.
+  name, everywhere in Home. The tradeoff is one extra paired accessory per switch,
+  which does clutter up the room view. If that bothers you, each switch accessory can
+  be individually hidden from Home's main screen — its own accessory settings have a
+  "Show in Favorites" (or similarly named) toggle — without affecting its availability
+  to automations or Siri; you just won't see a tile for it day to day. Stateless
+  switches don't have either problem: a `StatelessProgrammableSwitch` never renders as
+  a controllable tile in the first place, so it's harmless to leave several of them
+  nested inside the light's own accessory.
 
 ## Installation
 
