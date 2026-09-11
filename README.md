@@ -60,7 +60,12 @@ This plugin implements HAP services:
   which does clutter up the room view. If that bothers you, each switch accessory can
   be individually hidden from Home's main screen — its own accessory settings have a
   "Show in Favorites" (or similarly named) toggle — without affecting its availability
-  to automations or Siri; you just won't see a tile for it day to day. Stateless
+  to automations or Siri; you just won't see a tile for it day to day. Another option:
+  assign all of a light's switches to a dedicated room (e.g. "Hidden" or "Automation")
+  that has no other accessories shown in the main Home view — a room with nothing
+  visible in it doesn't get listed as a room there at all, so the whole room (and
+  everything in it) disappears from the tab bar rather than needing each accessory
+  hidden individually. They're still fully there for automations either way. Stateless
   switches don't have either problem: a `StatelessProgrammableSwitch` never renders as
   a controllable tile in the first place, so it's harmless to leave several of them
   nested inside the light's own accessory.
