@@ -202,9 +202,18 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
           ));
         }
 
-        lightHandler.attachSwitchBank({
-          fireSwitch: (switchNumber) => switchAccessories[switchNumber - 1].fire(),
-        });
+        // Exactly one switch is ever "on" — the one the rotation is currently sitting
+        // on — so a Home scene that jumps to one reads back as staying "on", rather
+        // than reverting to "off" moments later.
+        const setCurrentSwitch = (switchNumber: number) => {
+          switchAccessories.forEach((switchAccessory, index) => {
+            switchAccessory.setOn(index + 1 === switchNumber);
+          });
+        };
+        lightHandler.attachSwitchBank({ setCurrentSwitch });
+
+        // Restore the right switch's on/off state after a Homebridge restart.
+        setCurrentSwitch(lightHandler.getCurrentSwitchNumber());
       }
     }
 

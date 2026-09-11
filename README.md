@@ -36,14 +36,19 @@ This plugin implements HAP services:
   accessory. These switches are read-only: you can react to them, but nothing can
   trigger one directly, since a stateless switch has no "on" state to set.
 - **Stateful switch** (`statefulSwitches: true`) → an ordinary HAP `Switch` service
-  instead — the same service type used for a plain HomeKit switch accessory. It's still
-  momentary (it turns itself back off about a second after firing), but because it's a
-  regular settable on/off characteristic, a scene, automation, or a tap in the Home app
-  can turn a *specific* switch on directly, jumping the rotation to it. This is how you
-  let something other than "turn the light on" pick which step comes next. As a bonus,
-  each one is also individually renameable in the Home app, unlike the grouped
-  "Button 1, Button 2, ..." stateless switches (which Home hardcodes those labels for,
-  regardless of the name configured here).
+  instead — the same service type used for a plain HomeKit switch accessory. Because
+  it's a regular settable on/off characteristic, a scene, automation, or a tap in the
+  Home app can turn a *specific* switch on directly, jumping the rotation to it. This is
+  how you let something other than "turn the light on" pick which step comes next.
+  Exactly one switch per light is ever on — whichever one the rotation is currently
+  sitting on — and it stays on until the rotation moves elsewhere, rather than pulsing
+  back off a moment later. That matters for scenes in particular: a Home scene can only
+  capture and re-apply explicit target states, so a switch that reverted itself a moment
+  later made the scene that had just set it look "off" again, even though the jump it
+  triggered had already worked — staying on keeps the scene's own displayed state honest
+  too. As a bonus, each one is also individually renameable in the Home app, unlike the
+  grouped "Button 1, Button 2, ..." stateless switches (which Home hardcodes those
+  labels for, regardless of the name configured here).
 
   Stateful switches live on their **own standalone accessory each** — one accessory
   per switch, not shared with the light or with each other. That's deliberate, for two
@@ -168,7 +173,10 @@ the light turns on, it fires the switch that follows the one you triggered. For
 example, with 3 switches, triggering Switch 1 directly and then turning the light on
 fires Switch 2, even if the rotation had already moved past Switch 1 long ago. Whether
 a switch fired because the light turned on or because it was triggered directly, it
-turns itself back off about a second later, so it's always ready to be triggered again.
+stays on — and every other switch for that light turns off — until the rotation moves
+on again, so whichever switch is "on" at any moment tells you exactly which step the
+rotation is sitting on. If `resetCountOnOff` also fires (the light turns off with that
+enabled), every switch turns off too, since no step is "current" until the next "on".
 
 Toggling `statefulSwitches` for a light you've already set up in Home doesn't lose the
 light's own history: the light keeps its accessory (and its rotation position) either
@@ -223,7 +231,10 @@ runs next, instead of always advancing to "whatever's next". For example, with a
 
 This is useful when you want an external condition to steer the cycle (e.g. "if it's
 after sunset, the next toggle should jump straight to the night scene") without having
-to also fire that scene's own action a second time.
+to also fire that scene's own action a second time. Since the switch you jump to stays
+on until the rotation moves past it, the scene that set it reads back as staying
+on/active too — it won't flip back to "off" moments later the way a momentary trigger
+would.
 
 ## Development
 

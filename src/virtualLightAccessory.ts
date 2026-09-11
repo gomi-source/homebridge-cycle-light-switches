@@ -27,7 +27,7 @@ interface PersistedState {
  * VirtualSwitchAccessory instances, one per switch (stateful switches — see platform.ts
  * for why each gets its own accessory). */
 interface SwitchBank {
-  fireSwitch(switchNumber: number): void;
+  setCurrentSwitch(switchNumber: number): void;
 }
 
 /**
@@ -47,10 +47,10 @@ interface SwitchBank {
  * there's more than one) — HomeKit's closest equivalent to a Matter "Generic Switch"
  * configured for single press. When `statefulSwitches` is enabled, each switch instead
  * moves to its own standalone VirtualSwitchAccessory (attached via `attachSwitchBank`),
- * exposed as an ordinary settable HAP `Switch` service: still momentary, but now a scene
- * or automation can turn a *specific* switch on directly, which jumps the rotation to it
- * via `jumpToSwitch` — the next "on" always fires the one after it, regardless of where
- * the rotation was before.
+ * exposed as an ordinary settable HAP `Switch` service that stays on for as long as the
+ * rotation sits on it, rather than pulsing — so a scene or automation can turn a
+ * *specific* switch on directly, which jumps the rotation to it via `jumpToSwitch` — the
+ * next "on" always fires the one after it, regardless of where the rotation was before.
  */
 export class VirtualLightAccessory {
   private readonly light: LightConfig;
@@ -243,6 +243,8 @@ export class VirtualLightAccessory {
 
       if (this.light.resetCountOnOff) {
         this.state.count = 0;
+        // No switch is "current" until the rotation fires again.
+        this.switchBank?.setCurrentSwitch(0);
       }
     }
 
@@ -253,7 +255,8 @@ export class VirtualLightAccessory {
    * Called by the switch-bank accessory (stateful mode only) when a scene, automation, or
    * Home app tap turns one specific switch on directly. Jumps the rotation to that
    * switch — regardless of where it was before — so the *next* time the light is turned
-   * on, it fires the switch that follows this one.
+   * on, it fires the switch that follows this one. Also re-asserts that switch (and only
+   * that switch) as "on", in case anything had drifted out of sync.
    */
   jumpToSwitch(switchNumber: number) {
     const switchCount = Math.max(1, this.light.switchCount);
@@ -265,13 +268,27 @@ export class VirtualLightAccessory {
 
     this.state.count = switchNumber;
     this.persistState();
+    this.switchBank?.setCurrentSwitch(switchNumber);
+  }
+
+  /**
+   * The switch number the rotation is currently sitting on (1-based), or `0` if the
+   * light has never been turned on and nothing has jumped the rotation yet. Used to
+   * restore the right switch's on/off state right after a Homebridge restart.
+   */
+  getCurrentSwitchNumber(): number {
+    if (this.state.count === 0) {
+      return 0;
+    }
+    const switchCount = Math.max(1, this.light.switchCount);
+    return ((this.state.count - 1) % switchCount) + 1;
   }
 
   /** Fires switch `switchNumber` (1-based): via the external switch bank (stateful mode),
    * or a single-press event on this accessory's own switch service (stateless mode). */
   private fireSwitch(switchNumber: number) {
     if (this.switchBank) {
-      this.switchBank.fireSwitch(switchNumber);
+      this.switchBank.setCurrentSwitch(switchNumber);
       return;
     }
 

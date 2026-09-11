@@ -2,9 +2,6 @@ import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge
 
 import type { CycleLightSwitchesPlatform } from './platform.js';
 
-/** See STATEFUL_SWITCH_RESET_MS in virtualLightAccessory.ts for the rationale. */
-const STATEFUL_SWITCH_RESET_MS = 1000;
-
 /**
  * VirtualSwitchAccessory
  *
@@ -17,21 +14,23 @@ const STATEFUL_SWITCH_RESET_MS = 1000;
  * single-service accessory has no such ambiguity: its accessory name *is* the switch's
  * name everywhere in Home (room tiles, automation pickers, Siri).
  *
- * Firing it — whether because the light's own cycle reached it (`fire`, called from
- * VirtualLightAccessory) or because it was triggered directly here — turns it on, then
- * back off again after STATEFUL_SWITCH_RESET_MS, so it always behaves as a momentary
- * trigger rather than a toggle that's left on.
+ * Exactly one switch per light is ever "on" — whichever one the rotation is currently
+ * sitting on — and it stays on until the rotation moves elsewhere, rather than pulsing
+ * on and off like a momentary trigger. That matters for scenes in particular: a Home
+ * scene can only capture and re-apply explicit target states, so a switch that reverted
+ * itself a moment later made the scene that had just set it look "off" again, even
+ * though the jump it triggered had already taken effect. Turning a switch on directly
+ * still jumps the rotation to it (`onTriggered`, below) exactly as before.
  */
 export class VirtualSwitchAccessory {
   private service!: Service;
-  private resetTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly platform: CycleLightSwitchesPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly switchNumber: number,
     private readonly switchName: string,
-    /** Called when this switch is triggered directly (not by the light's own cycle), so
+    /** Called when this switch is turned on directly (not by the light's own cycle), so
      * the light can jump its rotation to it. */
     private readonly onTriggered: () => void,
   ) {
@@ -59,36 +58,26 @@ export class VirtualSwitchAccessory {
     this.service.getCharacteristic(Characteristic.On)
       .onSet(this.handleSetOn.bind(this));
 
-    // Always start "off" — if Homebridge restarted mid-reset, don't strand it "on".
+    // The platform sets the correct restored value right after construction (see
+    // platform.ts), once every switch for this light exists to compare against.
     this.service.updateCharacteristic(Characteristic.On, false);
   }
 
-  /** Handles a scene, automation, or Home app tap turning this switch on directly. */
+  /**
+   * Handles a scene, automation, or Home app tap turning this switch on directly.
+   * Turning one off directly is accepted as-is and doesn't move the rotation — nothing
+   * turns it back on except the light's own cycle reaching it again, or another switch
+   * being jumped to directly.
+   */
   private async handleSetOn(value: CharacteristicValue) {
-    if (value !== true) {
-      // Ignore explicit "off" writes; our own auto-reset already turns it back off via
-      // updateCharacteristic, which never re-enters this handler.
-      return;
+    if (value === true) {
+      this.onTriggered();
     }
-
-    this.onTriggered();
-    this.scheduleReset();
   }
 
-  /** Fires this switch because the light's own cycle reached it. */
-  fire() {
-    this.service.updateCharacteristic(this.platform.Characteristic.On, true);
-    this.scheduleReset();
-  }
-
-  private scheduleReset() {
-    if (this.resetTimer) {
-      clearTimeout(this.resetTimer);
-    }
-
-    this.resetTimer = setTimeout(() => {
-      this.resetTimer = undefined;
-      this.service.updateCharacteristic(this.platform.Characteristic.On, false);
-    }, STATEFUL_SWITCH_RESET_MS);
+  /** Sets this switch's displayed state directly, without invoking `onSet` — used by the
+   * platform to keep exactly one switch per light "on" at a time. */
+  setOn(value: boolean) {
+    this.service.updateCharacteristic(this.platform.Characteristic.On, value);
   }
 }
