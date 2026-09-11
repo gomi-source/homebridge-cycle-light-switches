@@ -17,14 +17,14 @@ actions (e.g. different light scenes/scenarios) in sequence. The first time you 
 a switch you might want to set a mood, the second time blaze all lights max, and finally
 turn everything off. And the following time start the cycle again.
 
-I used to achieved this by nested if/else in Shortcuts in Apple Home, but after switching
-to Matter over Thread, the delay of several seconds for running a shortcut became very
-apparent, and annoying. So this plugin runs the logic without having to slow everything
-down with Shortcuts.
+I used to achieve this by nested if/else in Shortcuts in Apple Home, but after switching
+to Matter over Thread, the delay of seconds for running a shortcut became very apparent,
+and annoying. So this plugin runs the logic without having to slow everything down
+with Shortcuts.
 
 ## How?
 
-This plugin implements HAP services:
+This plugin implements these HAP services:
 
 - **Light** → a HAP `Lightbulb` service exposing only the `On` characteristic (no
   brightness/color) — an on/off-only light.
@@ -64,16 +64,16 @@ This plugin implements HAP services:
   name, everywhere in Home. The tradeoff is one extra paired accessory per switch,
   which does clutter up the room view. If that bothers you, each switch accessory can
   be individually hidden from Home's main screen — its own accessory settings have a
-  "Show in Favorites" (or similarly named) toggle — without affecting its availability
-  to automations or Siri; you just won't see a tile for it day to day. Another option:
-  assign all of a light's switches to a dedicated room (e.g. "Hidden" or "Automation")
-  that has no other accessories shown in the main Home view — a room with nothing
-  visible in it doesn't get listed as a room there at all, so the whole room (and
-  everything in it) disappears from the tab bar rather than needing each accessory
-  hidden individually. They're still fully there for automations either way. Stateless
-  switches don't have either problem: a `StatelessProgrammableSwitch` never renders as
-  a controllable tile in the first place, so it's harmless to leave several of them
-  nested inside the light's own accessory.
+  "Add to Home View" toggle — without affecting its availability to automations or
+  Siri; you just won't see a tile for it the Home View. An option to also keep them
+  out of room views: assign all of a light's switches to a dedicated room (e.g. 
+  "Hidden" or "Automation") that has no other accessories shown in the Home View —
+  a room with nothing visible in it doesn't get listed as a room there at all, so the
+  whole room (and   everything in it) disappears from the tab bar rather than needing
+  each accessory hidden individually. They're still fully there for automations either
+  way. Stateless switches don't have either problem: a `StatelessProgrammableSwitch`
+  never renders as a controllable tile in the first place, so it's harmless to leave
+  several of them nested inside the light's own accessory.
 
 ## Installation
 
