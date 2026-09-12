@@ -1,0 +1,62 @@
+name: Publish to npm
+
+# Fires on a semver release tag (e.g. 1.2.3). Publishing is additionally gated to tags
+# that are actually reachable from main (see "Verify tag is on main" below) and that
+# match the version in package.json, so a stray tag can't accidentally get published.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: prd
+
+    permissions:
+      # id-token: write is what lets npm's Trusted Publisher (OIDC) flow authenticate this run
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Full history, so the "is this tag on main" check below has what it needs.
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        run: |
+          git fetch origin main --quiet
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME (commit $GITHUB_SHA) is not reachable from main; refusing to publish."
+            exit 1
+          fi
+
+      - name: Verify tag matches package.json version
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$pkg_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $pkg_version."
+            exit 1
+          fi
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure npm supports Trusted Publishing
+        # Trusted Publishing's OIDC exchange needs a reasonably recent npm CLI; the
+        # version bundled with setup-node's Node release isn't guaranteed to be new
+        # enough, so update it explicitly.
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      # package.json's "prepublishOnly" script (lint + build) runs automatically as
+      # part of "npm publish", so there's no separate lint/build step here.
+      - name: Publish to npm
+        run: npm publish
