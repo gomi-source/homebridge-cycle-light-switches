@@ -188,7 +188,7 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
         const switchAccessories: VirtualSwitchAccessory[] = [];
 
         for (let i = 1; i <= switchCount; i++) {
-          const switchName = light.switchNames?.[i - 1] || `${light.name} Switch ${i}`;
+          const switchName = light.switchNames?.[i - 1] || `${light.name} Cycle ${i}`;
           const switchUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}-switch-${light.name}-${i}`);
           const switchAccessory = this.getOrCreateAccessory(switchUuid, switchName, light, `switch ${i}`);
           this.discoveredCacheUUIDs.push(switchUuid);

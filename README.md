@@ -137,7 +137,7 @@ which reads `config.schema.json`):
 | `resetCountOnOff` | boolean | `false` | See below. |
 | `turnOffOnCycleComplete` | boolean | `false` | See below. |
 | `statefulSwitches` | boolean | `false` | See below. |
-| `switchNames` | string[] | — | Optional custom names for each switch, in order. Falls back to `"<Light Name> Switch <n>"`. |
+| `switchNames` | string[] | — | Optional custom names for each switch, in order. Falls back to `"<Light Name> Switch <n>"` (stateless) or `"<Light Name> Cycle <n>"` (`statefulSwitches: true`) — "Switch" is avoided there since these are settable HomeKit switches, easily confused with a real wall switch for the same light. |
 
 ## Behavior
 
@@ -165,13 +165,17 @@ both are enabled, both manual and automatic off resets the rotation, so the next
 
 **`statefulSwitches: true`** — switches become settable, so something other than the
 light itself can pick which step fires next, and each one moves to its own standalone
-accessory, named for that switch specifically (e.g. "Kitchen Scene Switch 2") — see
-"How?" above for why they can't share an accessory. Turning a specific switch on
+accessory, named for that switch specifically (e.g. "Kitchen Scene Cycle 2") — see
+"How?" above for why they can't share an accessory. They default to "Cycle" rather than
+"Switch" in their name, since a settable, named `Switch` accessory reads too much like
+an actual wall switch for the same light — "Kitchen Scene Switch 2" next to a real
+"Kitchen Switch" invites mix-ups that "Cycle" avoids (override it per switch with
+`switchNames` if you'd rather call them something else). Turning a specific switch on
 directly (from a scene, an automation action, or a tap in the Home app) jumps the
 rotation to it — regardless of what the rotation was doing before — so the *next* time
 the light turns on, it fires the switch that follows the one you triggered. For
-example, with 3 switches, triggering Switch 1 directly and then turning the light on
-fires Switch 2, even if the rotation had already moved past Switch 1 long ago. Whether
+example, with 3 switches, triggering Cycle 1 directly and then turning the light on
+fires Cycle 2, even if the rotation had already moved past Cycle 1 long ago. Whether
 a switch fired because the light turned on or because it was triggered directly, it
 stays on — and every other switch for that light turns off — until the rotation moves
 on again, so whichever switch is "on" at any moment tells you exactly which step the
@@ -223,10 +227,10 @@ runs next, instead of always advancing to "whatever's next". For example, with a
 
 1. Enable `statefulSwitches` for "Kitchen Scene".
 2. Create an automation: some condition (e.g. a specific wall switch, time of day, or
-   sensor) sets "Kitchen Scene Switch 2" to on — it's its own accessory, listed
+   sensor) sets "Kitchen Scene Cycle 2" to on — it's its own accessory, listed
    separately from "Kitchen Scene" itself and from the other switches.
 3. The next time anything turns "Kitchen Scene" on — a different automation, or the
-   Home app — it fires Switch 3, not whatever the rotation would otherwise have been
+   Home app — it fires Cycle 3, not whatever the rotation would otherwise have been
    on. Triggering a switch directly always determines what the *following* "on" does.
 
 This is useful when you want an external condition to steer the cycle (e.g. "if it's

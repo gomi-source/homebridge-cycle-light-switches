@@ -59,7 +59,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Optional display names for each switch, in order (first entry = switch 1). Leave empty to auto-name them \"<Light Name> Switch <n>\"."
+              "description": "Optional display names for each switch, in order (first entry = switch 1). Leave empty to auto-name them \"<Light Name> Switch <n>\" (stateless), or \"<Light Name> Cycle <n>\" when \"Make switches directly triggerable\" is on, since a settable Switch named that way is easily mistaken for a real wall switch on the same light."
             }
           }
         }
