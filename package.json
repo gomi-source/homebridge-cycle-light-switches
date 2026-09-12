@@ -2,17 +2,17 @@
   "name": "homebridge-cycle-light-switches",
   "displayName": "Cycle Light Switches",
   "type": "module",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Homebridge plugin that adds configurable virtual on/off lights, each paired with a configurable number of virtual single-press switches that fire in a round-robin sequence every time the light is turned on.",
   "author": "Anders Ljungh",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/USERNAME/homebridge-cycle-light-switches#readme",
+  "homepage": "https://github.com/gomi-source/homebridge-cycle-light-switches#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/USERNAME/homebridge-cycle-light-switches.git"
+    "url": "https://github.com/gomi-source/homebridge-cycle-light-switches.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/homebridge-cycle-light-switches/issues"
+    "url": "https://github.com/gomi-source/homebridge-cycle-light-switches/issues"
   },
   "keywords": [
     "homebridge-plugin",
