@@ -213,8 +213,17 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
         };
         lightHandler.attachSwitchBank({ setCurrentSwitch });
 
-        // Restore the right switch's on/off state after a Homebridge restart.
-        setCurrentSwitch(lightHandler.getCurrentSwitchNumber());
+        // Restore the right switch's on/off state after a Homebridge restart, and log
+        // exactly what was restored — this is the one piece of state that only lives in
+        // Homebridge's accessory cache (not the config), so if it's ever wrong after a
+        // restart (e.g. the cache file wasn't flushed to disk before Homebridge was
+        // stopped), this line is the fastest way to tell "restored the wrong thing" apart
+        // from "a real bug in the rotation logic".
+        const restoredSwitch = lightHandler.getCurrentSwitchNumber();
+        setCurrentSwitch(restoredSwitch);
+        this.log.info(
+          `${light.name}: restored — currently on step ${restoredSwitch || '(none yet)'} of ${switchCount}`,
+        );
       }
     }
 
