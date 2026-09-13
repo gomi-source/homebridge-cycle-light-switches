@@ -266,19 +266,28 @@ export class VirtualLightAccessory {
    * Home app tap turns one specific switch on directly. Jumps the rotation to that
    * switch — regardless of where it was before — so the *next* time the light is turned
    * on, it fires the switch that follows this one. Also re-asserts that switch (and only
-   * that switch) as "on", in case anything had drifted out of sync.
+   * that switch) as "on", in case anything had drifted out of sync, and turns the light
+   * itself on to reflect that a step is now active — the same way it would look if the
+   * normal rotation had reached this switch on its own.
    */
   jumpToSwitch(switchNumber: number) {
     const switchCount = Math.max(1, this.light.switchCount);
     const nextSwitch = (switchNumber % switchCount) + 1;
 
     this.platform.log.info(
-      `${this.light.name}: switch ${switchNumber} triggered directly → next "on" will fire switch ${nextSwitch} of ${switchCount}`,
+      `${this.light.name}: switch ${switchNumber} triggered directly → turning the light on, ` +
+      `next "on" will fire switch ${nextSwitch} of ${switchCount}`,
     );
 
     this.state.count = switchNumber;
+    this.state.on = true;
     this.persistState();
     this.switchBank?.setCurrentSwitch(switchNumber);
+
+    // Push the light on to HomeKit. This does not re-enter handleSetOn/onSet (and so
+    // doesn't advance the rotation or fire another switch) — it only notifies
+    // controllers, the same as any accessory reporting its own state change.
+    this.lightService.updateCharacteristic(this.platform.Characteristic.On, true);
   }
 
   /**

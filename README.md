@@ -173,9 +173,14 @@ an actual wall switch for the same light — "Kitchen Scene Switch 2" next to a 
 `switchNames` if you'd rather call them something else). Turning a specific switch on
 directly (from a scene, an automation action, or a tap in the Home app) jumps the
 rotation to it — regardless of what the rotation was doing before — so the *next* time
-the light turns on, it fires the switch that follows the one you triggered. For
-example, with 3 switches, triggering Cycle 1 directly and then turning the light on
-fires Cycle 2, even if the rotation had already moved past Cycle 1 long ago. Whether
+the light turns on, it fires the switch that follows the one you triggered. Triggering
+a switch directly also turns the light itself on, if it wasn't already — the same as
+if the rotation had reached that step on its own — so a scene that jumps to a step
+also brings the light along with it, rather than leaving it looking off while a
+switch quietly claims to be "active". For example, with 3 switches, triggering Cycle 1
+directly turns the light on and fires nothing further by itself; turning the light on
+again afterward is what then fires Cycle 2, even if the rotation had already moved
+past Cycle 1 long ago. Whether
 a switch fired because the light turned on or because it was triggered directly, it
 stays on — and every other switch for that light turns off — until the rotation moves
 on again, so whichever switch is "on" at any moment tells you exactly which step the
@@ -228,7 +233,8 @@ runs next, instead of always advancing to "whatever's next". For example, with a
 1. Enable `statefulSwitches` for "Kitchen Scene".
 2. Create an automation: some condition (e.g. a specific wall switch, time of day, or
    sensor) sets "Kitchen Scene Cycle 2" to on — it's its own accessory, listed
-   separately from "Kitchen Scene" itself and from the other switches.
+   separately from "Kitchen Scene" itself and from the other switches. This also turns
+   "Kitchen Scene" itself on, the same as if the rotation had reached step 2 normally.
 3. The next time anything turns "Kitchen Scene" on — a different automation, or the
    Home app — it fires Cycle 3, not whatever the rotation would otherwise have been
    on. Triggering a switch directly always determines what the *following* "on" does.
