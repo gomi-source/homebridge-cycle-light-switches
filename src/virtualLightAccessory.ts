@@ -277,6 +277,7 @@ export class VirtualLightAccessory {
   jumpToSwitch(switchNumber: number) {
     const switchCount = Math.max(1, this.light.switchCount);
     const nextSwitch = (switchNumber % switchCount) + 1;
+    const isLastInCycle = switchNumber === switchCount;
 
     this.platform.log.info(
       `${this.light.name}: switch ${switchNumber} triggered directly → turning the light on, ` +
@@ -285,13 +286,24 @@ export class VirtualLightAccessory {
 
     this.state.count = switchNumber;
     this.state.on = true;
-    this.persistState();
     this.switchBank?.setCurrentSwitch(switchNumber);
 
     // Push the light on to HomeKit. This does not re-enter handleSetOn/onSet (and so
     // doesn't advance the rotation or fire another switch) — it only notifies
     // controllers, the same as any accessory reporting its own state change.
     this.lightService.updateCharacteristic(this.platform.Characteristic.On, true);
+
+    // Jumping straight to the last switch in the cycle completes it exactly as much as
+    // reaching it via the normal rotation does — so it honors turnOffOnCycleComplete the
+    // same way handleSetOn's turning-on branch does, rather than leaving the light on
+    // because the rotation was fast-forwarded instead of stepped through.
+    if (isLastInCycle && this.light.turnOffOnCycleComplete) {
+      this.platform.log.info(`${this.light.name}: cycle complete → turning light back off`);
+      this.turnLightOff();
+      this.lightService.updateCharacteristic(this.platform.Characteristic.On, false);
+    }
+
+    this.persistState();
   }
 
   /**
