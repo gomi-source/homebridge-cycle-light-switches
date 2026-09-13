@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file.
   nothing, since it isn't the one standing in for "there's an active step". Both
   directions honor `resetCountOnOff` the same way a direct light on/off already did.
 
+### Fixed
+- Manually triggering the last step in a cycle now honors `turnOffOnCycleComplete`.
+
 ## [1.0.8] - 2026-09-13
 
 ### Fixed
