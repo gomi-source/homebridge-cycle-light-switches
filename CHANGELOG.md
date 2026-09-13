@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.9] - 2026-09-13
+
+### Added
+
+- Triggering a stateful switch on directly now also turns the light itself on, if it
+  wasn't already — the same as if the rotation had reached that step on its own, so a
+  scene that jumps to a step doesn't leave the light looking off while a switch claims
+  to be "active".
+- Turning off the switch currently representing the active step now also turns the
+  light off — the mirror of the above. Turning off any other (already-off) switch does
+  nothing, since it isn't the one standing in for "there's an active step". Both
+  directions honor `resetCountOnOff` the same way a direct light on/off already did.
+
 ## [1.0.8] - 2026-09-13
 
 ### Fixed
