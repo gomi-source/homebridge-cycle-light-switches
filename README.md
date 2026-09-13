@@ -186,6 +186,11 @@ stays on — and every other switch for that light turns off — until the rotat
 on again, so whichever switch is "on" at any moment tells you exactly which step the
 rotation is sitting on. If `resetCountOnOff` also fires (the light turns off with that
 enabled), every switch turns off too, since no step is "current" until the next "on".
+The reverse also holds: turning off *the switch currently on* — directly, the same way
+you'd turn it on — turns the light off too, since that's the one saying "there's an
+active step"; turning off any other (already-off) switch does nothing, since it was
+never the one representing the current step. This also honors `resetCountOnOff` the
+same way a direct light-off would.
 
 Toggling `statefulSwitches` for a light you've already set up in Home doesn't lose the
 light's own history: the light keeps its accessory (and its rotation position) either

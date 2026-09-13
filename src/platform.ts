@@ -199,6 +199,7 @@ export class CycleLightSwitchesPlatform implements DynamicPlatformPlugin {
             i,
             switchName,
             () => lightHandler.jumpToSwitch(i),
+            () => lightHandler.switchTurnedOff(i),
           ));
         }
 

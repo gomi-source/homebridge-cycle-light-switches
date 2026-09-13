@@ -233,15 +233,7 @@ export class VirtualLightAccessory {
 
       if (isLastInCycle && this.light.turnOffOnCycleComplete) {
         this.platform.log.info(`${this.light.name}: cycle complete → turning light back off`);
-        this.state.on = false;
-
-        if (this.light.resetCountOnOff) {
-          this.state.count = 0;
-          // No switch is "current" until the rotation fires again — same as the
-          // manual-off path below. Without this, the switch that just completed the
-          // cycle stayed lit even though the rotation had already reset behind it.
-          this.switchBank?.setCurrentSwitch(0);
-        }
+        this.turnLightOff();
 
         // Push the auto-off to HomeKit. This does not re-enter handleSetOn/onSet — it only
         // notifies controllers, the same as any accessory reporting its own state change.
@@ -249,16 +241,28 @@ export class VirtualLightAccessory {
       }
     } else {
       this.platform.log.debug(`${this.light.name}: turned off`);
-      this.state.on = false;
-
-      if (this.light.resetCountOnOff) {
-        this.state.count = 0;
-        // No switch is "current" until the rotation fires again.
-        this.switchBank?.setCurrentSwitch(0);
-      }
+      this.turnLightOff();
     }
 
     this.persistState();
+  }
+
+  /**
+   * Shared "the light is now off" bookkeeping — used whether that happened because the
+   * light's own On characteristic was set to false, `turnOffOnCycleComplete` fired, or
+   * (stateful mode) the switch currently representing the active step was turned off
+   * directly. Applies `resetCountOnOff` and clears the switch bank the same way no
+   * matter which of those caused it. Does not itself push anything to HomeKit — callers
+   * that need the light's own characteristic updated do that separately.
+   */
+  private turnLightOff() {
+    this.state.on = false;
+
+    if (this.light.resetCountOnOff) {
+      this.state.count = 0;
+      // No switch is "current" until the rotation fires again.
+      this.switchBank?.setCurrentSwitch(0);
+    }
   }
 
   /**
@@ -288,6 +292,28 @@ export class VirtualLightAccessory {
     // doesn't advance the rotation or fire another switch) — it only notifies
     // controllers, the same as any accessory reporting its own state change.
     this.lightService.updateCharacteristic(this.platform.Characteristic.On, true);
+  }
+
+  /**
+   * Called by the switch-bank accessory (stateful mode only) when the switch currently
+   * representing the active step is turned off directly. Since exactly one switch is
+   * ever "on" at a time, turning off *that* one means "there's no active step anymore",
+   * so the light turns off too — the same as if it had been turned off directly,
+   * honoring `resetCountOnOff` the same way. Turning off any other (already-off) switch
+   * is a no-op: it isn't the one representing the current step.
+   */
+  switchTurnedOff(switchNumber: number) {
+    if (switchNumber !== this.getCurrentSwitchNumber() || !this.state.on) {
+      return;
+    }
+
+    this.platform.log.info(`${this.light.name}: switch ${switchNumber} (the active step) turned off → turning the light off`);
+
+    this.turnLightOff();
+    this.persistState();
+
+    // Push the off to HomeKit — see the identical note on jumpToSwitch/the auto-off path.
+    this.lightService.updateCharacteristic(this.platform.Characteristic.On, false);
   }
 
   /**

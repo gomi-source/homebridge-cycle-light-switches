@@ -20,7 +20,9 @@ import type { CycleLightSwitchesPlatform } from './platform.js';
  * scene can only capture and re-apply explicit target states, so a switch that reverted
  * itself a moment later made the scene that had just set it look "off" again, even
  * though the jump it triggered had already taken effect. Turning a switch on directly
- * still jumps the rotation to it (`onTriggered`, below) exactly as before.
+ * jumps the rotation to it and turns the light on (`onTriggered`, below); turning off
+ * *the one currently on* turns the light back off too, since that's the one
+ * representing "there's an active step" (`onTurnedOff`, below).
  */
 export class VirtualSwitchAccessory {
   private service!: Service;
@@ -33,6 +35,9 @@ export class VirtualSwitchAccessory {
     /** Called when this switch is turned on directly (not by the light's own cycle), so
      * the light can jump its rotation to it. */
     private readonly onTriggered: () => void,
+    /** Called when this switch is turned off directly. The light only reacts if this
+     * was the switch currently representing the active step. */
+    private readonly onTurnedOff: () => void,
   ) {
     this.setupAccessoryInformation();
     this.setupSwitch();
@@ -64,14 +69,15 @@ export class VirtualSwitchAccessory {
   }
 
   /**
-   * Handles a scene, automation, or Home app tap turning this switch on directly.
-   * Turning one off directly is accepted as-is and doesn't move the rotation — nothing
-   * turns it back on except the light's own cycle reaching it again, or another switch
-   * being jumped to directly.
+   * Handles a scene, automation, or Home app tap turning this switch on or off directly.
+   * Turning it off doesn't move the rotation — nothing turns it back on except the
+   * light's own cycle reaching it again, or another switch being jumped to directly.
    */
   private async handleSetOn(value: CharacteristicValue) {
     if (value === true) {
       this.onTriggered();
+    } else {
+      this.onTurnedOff();
     }
   }
 
