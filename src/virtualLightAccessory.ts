@@ -237,6 +237,10 @@ export class VirtualLightAccessory {
 
         if (this.light.resetCountOnOff) {
           this.state.count = 0;
+          // No switch is "current" until the rotation fires again — same as the
+          // manual-off path below. Without this, the switch that just completed the
+          // cycle stayed lit even though the rotation had already reset behind it.
+          this.switchBank?.setCurrentSwitch(0);
         }
 
         // Push the auto-off to HomeKit. This does not re-enter handleSetOn/onSet — it only
